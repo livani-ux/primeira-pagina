@@ -3,15 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Minha primeira página</title>
+  <title>Revenda do Victor</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 40px; background: #0f172a; color: #fff; }
-    button { padding: 14px 24px; font-size: 18px; border: 0; border-radius: 12px; background: #22c55e; color: #fff; }
+    body { margin: 0; font-family: sans-serif; background: #0f172a; color: #fff; text-align: center; padding: 48px 20px; }
+    h1 { font-size: 32px; margin-bottom: 8px; }
+    p { color: #cbd5e1; font-size: 18px; max-width: 420px; margin: 12px auto; }
+    .cards { display: flex; flex-direction: column; gap: 12px; max-width: 420px; margin: 32px auto; }
+    .card { background: #1e293b; border-radius: 14px; padding: 16px; font-size: 17px; }
+    a.btn { display: inline-block; background: #22c55e; color: #fff; text-decoration: none; font-size: 20px; padding: 16px 28px; border-radius: 14px; }
   </style>
 </head>
 <body>
-  <h1>Fala, mundo! 🚀</h1>
-  <p>Essa é a minha primeira página no GitHub.</p>
-  <button onclick="this.textContent='Funcionou! 🎉'">Toca aqui</button>
+  <h1>Revenda do Victor 🛒</h1>
+  <p>Produtos bons, preço justo e entrega rápida aqui na cidade.</p>
+
+  <div class="cards">
+    <div class="card">🔧 Ferramentas</div>
+    <div class="card">📱 Placas NFC de avaliação do Google</div>
+    <div class="card">📦 Novidades toda semana</div>
+  </div>
+
+  <a class="btn" href="https://wa.me/5592993845465?text=Oi!%20Vi%20sua%20página%20e%20quero%20saber%20mais.">
+    Chamar no WhatsApp 💬
+  </a>
 </body>
 </html>
