@@ -114,3 +114,202 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:24px 16px}
 
     <div id="box-troco" style="display:none">
       <label>Troco para quanto? (opcional)</label>
+      <input id="f-troco" type="number" inputmode="decimal" placeholder="Ex: 50">
+    </div>
+
+    <label>Observações</label>
+    <textarea id="f-obs" rows="2" placeholder="Ex: sem cebola, maionese à parte"></textarea>
+
+    <button class="enviar" onclick="enviar()">Enviar pedido no WhatsApp 💬</button>
+    <button class="voltar" onclick="fecharSacola()">Voltar ao cardápio</button>
+  </div>
+</div>
+
+<script>
+// ================== EDITE AQUI ==================
+const CONFIG = {
+  nome: "Lanchonete do Victor",
+  slogan: "Lanches artesanais feitos na hora",
+  emoji: "🍔",
+  whats: "5592993845465",
+  cor: "#dc2626",
+  corEscura: "#991b1b",
+  taxaEntrega: 5,
+  pedidoMinimo: 15,
+  tempo: "30-45 min",
+  abre: 18,    // abre às 18h
+  fecha: 23    // fecha às 23h
+};
+
+// img: nome da foto subida no GitHub (ex: "x-burger.jpg"). Deixe "" se não tiver.
+const ITENS = [
+  { id: 1, cat: "Lanches", nome: "Hot Dog Completo", desc: "Pão, salsicha, molho, batata palha e queijo", preco: 12, emoji: "🌭", img: "", destaque: true },
+  { id: 2, cat: "Lanches", nome: "X-Burger", desc: "Hambúrguer artesanal, queijo, alface e tomate", preco: 18, emoji: "🍔", img: "", destaque: true },
+  { id: 3, cat: "Lanches", nome: "X-Bacon", desc: "Hambúrguer artesanal, queijo e bacon crocante", preco: 22, emoji: "🥓", img: "" },
+  { id: 4, cat: "Bebidas", nome: "Refrigerante Lata", desc: "350 ml bem gelada", preco: 6, emoji: "🥤", img: "" },
+  { id: 5, cat: "Bebidas", nome: "Suco Natural", desc: "Sabores do dia, 400 ml", preco: 8, emoji: "🧃", img: "" },
+  { id: 6, cat: "Sobremesas", nome: "Brownie", desc: "Chocolate intenso, fatia individual", preco: 9, emoji: "🍫", img: "" }
+];
+// =================================================
+
+const $ = id => document.getElementById(id);
+const moeda = v => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const cats = [...new Set(ITENS.map(i => i.cat))];
+let sac = {};
+let tipo = "entrega";
+
+try { sac = JSON.parse(localStorage.getItem("sacola") || "{}"); } catch (e) { sac = {}; }
+Object.keys(sac).forEach(k => { if (!ITENS.find(i => i.id == k)) delete sac[k]; });
+function salvar() { try { localStorage.setItem("sacola", JSON.stringify(sac)); } catch (e) {} }
+
+function aberto() {
+  const d = new Date(), h = d.getHours() + d.getMinutes() / 60;
+  return CONFIG.abre < CONFIG.fecha ? (h >= CONFIG.abre && h < CONFIG.fecha) : (h >= CONFIG.abre || h < CONFIG.fecha);
+}
+
+function iniciar() {
+  document.documentElement.style.setProperty("--cor", CONFIG.cor);
+  document.documentElement.style.setProperty("--cor-esc", CONFIG.corEscura);
+  document.title = CONFIG.nome + " | Cardápio";
+  $("logo").textContent = CONFIG.emoji;
+  $("nome").textContent = CONFIG.nome;
+  $("slogan").textContent = CONFIG.slogan;
+  $("i-tempo").textContent = CONFIG.tempo;
+  $("i-taxa").textContent = CONFIG.taxaEntrega > 0 ? moeda(CONFIG.taxaEntrega) : "Grátis";
+  $("i-min").textContent = moeda(CONFIG.pedidoMinimo);
+  $("rodape").textContent = "© " + CONFIG.nome + " · Cardápio digital";
+  const on = aberto();
+  const st = $("status");
+  st.className = "status " + (on ? "on" : "off");
+  st.textContent = on ? "🟢 Aberto agora · fecha às " + CONFIG.fecha + "h" : "🔴 Fechado · abre às " + CONFIG.abre + "h";
+  $("abas").innerHTML = cats.map(c => `<button class="aba" data-cat="${c}" onclick="irPara('${c}')">${c}</button>`).join("");
+  desenhar("");
+  atualizarBarra();
+  window.addEventListener("scroll", marcarAba, { passive: true });
+}
+
+function ctrl(id) {
+  const q = sac[id] || 0;
+  return q
+    ? `<button onclick="mudar(${id},-1)">−</button><span>${q}</span><button onclick="mudar(${id},1)">+</button>`
+    : `<button class="add" onclick="mudar(${id},1)">Adicionar</button>`;
+}
+
+function itemHTML(i) {
+  return `<article class="item">
+    <div class="txt">
+      ${i.destaque ? '<span class="tag">⭐ Mais pedido</span>' : ""}
+      <h3>${i.nome}</h3>
+      <p>${i.desc}</p>
+      <div class="rodape"><b>${moeda(i.preco)}</b><span class="ctrl" data-ctrl="${i.id}">${ctrl(i.id)}</span></div>
+    </div>
+    <div class="foto">${i.emoji || "🍽️"}${i.img ? `<img src="${i.img}" alt="${i.nome}" loading="lazy" onerror="this.remove()">` : ""}</div>
+  </article>`;
+}
+
+function desenhar(termo) {
+  const t = (termo || "").toLowerCase().trim();
+  let html = "";
+  cats.forEach(c => {
+    const lista = ITENS.filter(i => i.cat === c && (!t || (i.nome + " " + i.desc).toLowerCase().includes(t)));
+    if (lista.length) html += `<h2 id="cat-${c}">${c}</h2>` + lista.map(itemHTML).join("");
+  });
+  $("cardapio").innerHTML = html || '<div class="vazio">Nenhum item encontrado 😕</div>';
+  marcarAba();
+}
+
+function irPara(c) {
+  $("busca").value = "";
+  desenhar("");
+  const el = $("cat-" + c);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function marcarAba() {
+  let atual = cats[0];
+  cats.forEach(c => {
+    const el = $("cat-" + c);
+    if (el && el.getBoundingClientRect().top <= 130) atual = c;
+  });
+  document.querySelectorAll(".aba").forEach(b => {
+    const on = b.dataset.cat === atual;
+    b.classList.toggle("ativa", on);
+    if (on) b.scrollIntoView({ inline: "center", block: "nearest" });
+  });
+}
+
+function mudar(id, d) {
+  sac[id] = Math.max(0, (sac[id] || 0) + d);
+  if (!sac[id]) delete sac[id];
+  salvar();
+  document.querySelectorAll(`[data-ctrl="${id}"]`).forEach(e => e.innerHTML = ctrl(id));
+  atualizarBarra();
+  if ($("ov").style.display === "flex") desenharSacola();
+}
+
+const subtotal = () => ITENS.reduce((s, i) => s + (sac[i.id] || 0) * i.preco, 0);
+const qtdTotal = () => Object.values(sac).reduce((s, q) => s + q, 0);
+const taxa = () => tipo === "entrega" ? CONFIG.taxaEntrega : 0;
+
+function atualizarBarra() {
+  const q = qtdTotal();
+  const b = $("bar");
+  b.style.display = q ? "flex" : "none";
+  b.innerHTML = `<span><span class="badge">${q}</span>Ver sacola</span><span>${moeda(subtotal())}</span>`;
+}
+
+function abrirSacola() { $("ov").style.display = "flex"; desenharSacola(); }
+function fecharSacola() { $("ov").style.display = "none"; }
+
+function desenharSacola() {
+  if (!qtdTotal()) { fecharSacola(); return; }
+  $("lista-sac").innerHTML = ITENS.filter(i => sac[i.id]).map(i => `
+    <div class="linha-sac">
+      <div class="n">${i.nome}<small>${moeda(i.preco)} cada</small></div>
+      <span class="ctrl">${ctrl(i.id)}</span>
+    </div>`).join("");
+  $("tot").innerHTML = `
+    <div><span>Subtotal</span><span>${moeda(subtotal())}</span></div>
+    ${tipo === "entrega" ? `<div><span>Taxa de entrega</span><span>${CONFIG.taxaEntrega > 0 ? moeda(taxa()) : "Grátis"}</span></div>` : ""}
+    <div class="final"><span>Total</span><span>${moeda(subtotal() + taxa())}</span></div>`;
+}
+
+function setTipo(t) {
+  tipo = t;
+  $("t-entrega").classList.toggle("on", t === "entrega");
+  $("t-retirada").classList.toggle("on", t === "retirada");
+  $("box-end").style.display = t === "entrega" ? "block" : "none";
+  desenharSacola();
+}
+
+function enviar() {
+  const nome = $("f-nome").value.trim();
+  const end = $("f-end").value.trim();
+  const obs = $("f-obs").value.trim();
+  const pag = $("f-pag").value;
+  const troco = $("f-troco").value.trim();
+
+  if (subtotal() < CONFIG.pedidoMinimo) { alert("O pedido mínimo é de " + moeda(CONFIG.pedidoMinimo) + "."); return; }
+  if (!nome) { alert("Digite o seu nome."); $("f-nome").focus(); return; }
+  if (tipo === "entrega" && !end) { alert("Digite o endereço de entrega."); $("f-end").focus(); return; }
+  if (!aberto() && !confirm("Estamos fechados agora. Deseja enviar o pedido mesmo assim?")) return;
+
+  let m = `*Novo pedido - ${CONFIG.nome}*\n\n`;
+  ITENS.filter(i => sac[i.id]).forEach(i => { m += `${sac[i.id]}x ${i.nome} - ${moeda(sac[i.id] * i.preco)}\n`; });
+  m += `\nSubtotal: ${moeda(subtotal())}`;
+  if (tipo === "entrega") m += `\nTaxa de entrega: ${moeda(taxa())}`;
+  m += `\n*Total: ${moeda(subtotal() + taxa())}*\n`;
+  m += `\n*Nome:* ${nome}`;
+  m += `\n*Tipo:* ${tipo === "entrega" ? "Entrega" : "Retirada no local"}`;
+  if (tipo === "entrega") m += `\n*Endereço:* ${end}`;
+  m += `\n*Pagamento:* ${pag}`;
+  if (pag === "Dinheiro" && troco) m += ` (troco para R$ ${troco})`;
+  if (obs) m += `\n*Obs:* ${obs}`;
+
+  window.open("https://wa.me/" + CONFIG.whats + "?text=" + encodeURIComponent(m), "_blank");
+}
+
+iniciar();
+</script>
+</body>
+</html>
