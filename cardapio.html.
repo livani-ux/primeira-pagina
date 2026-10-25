@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cardápio Digital</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #450a0a; color: #fff; padding-bottom: 110px; }
+    header { text-align: center; padding: 40px 20px 20px; background: linear-gradient(180deg, #dc2626, #450a0a); }
+    header h1 { margin: 0 0 6px; font-size: 30px; }
+    header p { margin: 0; color: #fecaca; }
+    .abas { display: flex; gap: 8px; overflow-x: auto; padding: 14px 16px; position: sticky; top: 0; background: #450a0a; z-index: 5; }
+    .aba { border: 0; background: #7f1d1d; color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 15px; white-space: nowrap; }
+    .aba.ativa { background: #fff; color: #b91c1c; font-weight: 700; }
+    .lista { max-width: 480px; margin: 0 auto; padding: 8px 16px; }
+    .item { background: #7f1d1d; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+    .item h3 { margin: 0 0 4px; font-size: 18px; }
+    .item p { margin: 0 0 10px; color: #fecaca; font-size: 14px; }
+    .linha { display: flex; justify-content: space-between; align-items: center; }
+    .preco { font-size: 20px; font-weight: 700; }
+    .qtd { display: flex; align-items: center; gap: 12px; }
+    .qtd button { width: 36px; height: 36px; border-radius: 50%; border: 0; background: #fff; color: #b91c1c; font-size: 22px; font-weight: 700; }
+    .qtd span { min-width: 18px; text-align: center; font-size: 18px; }
+    .barra { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; color: #450a0a; padding: 14px 18px; display: none; justify-content: space-between; align-items: center; box-shadow: 0 -4px 20px rgba(0,0,0,.4); }
+    .barra b { font-size: 20px; }
+    .barra button { background: #dc2626; color: #fff; border: 0; padding: 14px 22px; border-radius: 14px; font-size: 17px; font-weight: 700; }
+    .fundo { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: flex-end; z-index: 10; }
+    .painel { background: #fff; color: #450a0a; width: 100%; max-height: 85vh; overflow-y: auto; border-radius: 20px 20px 0 0; padding: 20px; }
+    .painel h2 { margin: 0 0 12px; }
+    .painel input, .painel textarea { width: 100%; padding: 12px; border: 1px solid #fca5a5; border-radius: 10px; font-size: 16px; margin-bottom: 10px; font-family: inherit; }
+    .resumo div { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #fee2e2; }
+    .enviar { width: 100%; background: #22c55e; color: #fff; border: 0; padding: 16px; border-radius: 14px; font-size: 18px; font-weight: 700; margin-top: 8px; }
+    .fechar { width: 100%; background: none; border: 0; color: #b91c1c; padding: 12px; font-size: 16px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🍔 Lanchonete do Victor</h1>
+    <p>Monte seu pedido e envie pelo WhatsApp</p>
+  </header>
+
+  <div class="abas" id="abas"></div>
+  <div class="lista" id="lista"></div>
+
+  <div class="barra" id="barra">
+    <div>🛒 <b id="total">R$ 0,00</b></div>
+    <button onclick="abrirResumo()">Ver pedido</button>
+  </div>
+
+  <div class="fundo" id="fundo">
+    <div class="painel">
+      <h2>Seu pedido</h2>
+      <div class="resumo" id="resumo"></div>
+      <br>
+      <input id="nome" placeholder="Seu nome">
+      <textarea id="obs" rows="2" placeholder="Observação (ex: sem cebola, endereço de entrega)"></textarea>
+      <button class="enviar" onclick="enviar()">Enviar pedido no WhatsApp 💬</button>
+      <button class="fechar" onclick="fecharResumo()">Voltar ao cardápio</button>
+    </div>
+  </div>
+
+  <script>
+    // ===== EDITE AQUI =====
+    const WHATS = "5592993845465";
+    const itens = [
+      { id: 1, cat: "Lanches", nome: "Hot Dog Completo", desc: "Pão, salsicha, molho, batata palha e queijo", preco: 12 },
+      { id: 2, cat: "Lanches", nome: "X-Burger", desc: "Hambúrguer artesanal, queijo, alface e tomate", preco: 18 },
+      { id: 3, cat: "Lanches", nome: "X-Bacon", desc: "Hambúrguer artesanal, queijo e bacon crocante", preco: 22 },
+      { id: 4, cat: "Bebidas", nome: "Refrigerante Lata", desc: "350 ml gelada", preco: 6 },
+      { id: 5, cat: "Bebidas", nome: "Suco Natural", desc: "Sabores do dia, 400 ml", preco: 8 },
+      { id: 6, cat: "Sobremesas", nome: "Brownie", desc: "Chocolate intenso, fatia individual", preco: 9 }
+    ];
+    // ======================
+
+    let carrinho = {};
+    let filtro = "Todos";
+    const cats = ["Todos", ...new Set(itens.map(i => i.cat))];
+
+    const moeda = v => "R$ " + v.toFixed(2).replace(".", ",");
+
+    function desenharAbas() {
+      document.getElementById("abas").innerHTML = cats.map(c =>
+        `<button class="aba ${c === filtro ? "ativa" : ""}" onclick="trocar('${c}')">${c}</button>`
+      ).join("");
+    }
+
+    function desenharLista() {
+      const visiveis = itens.filter(i => filtro === "Todos" || i.cat === filtro);
+      document.getElementById("lista").innerHTML = visiveis.map(i => `
+        <div class="item">
+          <h3>${i.nome}</h3>
+          <p>${i.desc}</p>
+          <div class="linha">
+            <div class="preco">${moeda(i.preco)}</div>
+            <div class="qtd">
+              <button onclick="mudar(${i.id}, -1)">−</button>
+              <span>${carrinho[i.id] || 0}</span>
+              <button onclick="mudar(${i.id}, 1)">+</button>
+            </div>
+          </div>
+        </div>`).join("");
+    }
+
+    function trocar(c) { filtro = c; desenharAbas(); desenharLista(); }
+
+    function mudar(id, d) {
+      carrinho[id] = Math.max(0, (carrinho[id] || 0) + d);
+      if (carrinho[id] === 0) delete carrinho[id];
+      desenharLista();
+      atualizarBarra();
+    }
+
+    function totalGeral() {
+      return itens.reduce((s, i) => s + (carrinho[i.id] || 0) * i.preco, 0);
+    }
+
+    function atualizarBarra() {
+      const tem = Object.keys(carrinho).length > 0;
+      document.getElementById("barra").style.display = tem ? "flex" : "none";
+      document.getElementById("total").textContent = moeda(totalGeral());
+    }
+
+    function abrirResumo() {
+      document.getElementById("resumo").innerHTML = itens
+        .filter(i => carrinho[i.id])
+        .map(i => `<div><span>${carrinho[i.id]}x ${i.nome}</span><b>${moeda(carrinho[i.id] * i.preco)}</b></div>`)
+        .join("") + `<div><b>Total</b><b>${moeda(totalGeral())}</b></div>`;
+      document.getElementById("fundo").style.display = "flex";
+    }
+
+    function fecharResumo() { document.getElementById("fundo").style.display = "none"; }
+
+    function enviar() {
+      const nome = document.getElementById("nome").value.trim();
+      const obs = document.getElementById("obs").value.trim();
+      let msg = "Olá! Quero fazer um pedido:\n\n";
+      itens.filter(i => carrinho[i.id]).forEach(i => {
+        msg += `• ${carrinho[i.id]}x ${i.nome} — ${moeda(carrinho[i.id] * i.preco)}\n`;
+      });
+      msg += `\nTotal: ${moeda(totalGeral())}`;
+      if (nome) msg += `\nNome: ${nome}`;
+      if (obs) msg += `\nObs: ${obs}`;
+      window.open("https://wa.me/" + WHATS + "?text=" + encodeURIComponent(msg), "_blank");
+    }
+
+    desenharAbas();
+    desenharLista();
+  </script>
+</body>
+</html>
